@@ -246,6 +246,7 @@ class Polyline extends EventEmitter<{
 
   addPolyPoint(point: RatingPoint) {
     const duration = this.wavesurfer?.getDuration() || 1
+    console.log(`Adding point at time ${point.time} with rating ${point.rating} for dimension ${this.activeDimension}. duration is: ${duration}`)
     const relX = point.time / duration
     const relY = point.rating
 
