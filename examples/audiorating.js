@@ -3,13 +3,25 @@
 
 /*
 <html>
-  <button style="min-width: 5em" id="play">Play</button>
-  <button style="margin: 0 1em 2em" id="randomize">Randomize rating points</button>
+  <div style="margin-bottom: 1em;">
+    <button style="min-width: 5em" id="play">Play</button>
+    <button style="margin: 0 1em" id="randomize">Randomize points</button>
+    <select id="dimension-select" style="margin-right: 1em">
+      <option value="valence">Valence</option>
+      <option value="arousal">Arousal</option>
+      <option value="energy">Energy</option>
+    </select>
+  </div>
 
-  Rating: <label>0</label>
+  <div style="margin-bottom: 1em;">
+    Current rating: <span id="current-rating">0</span>
+    <span id="dimension-name" style="margin-left: 0.5em"></span>
+  </div>
+
   <div id="container" style="border: 1px solid #ddd;"></div>
+
   <p>
-    📖 <a href="https://wavesurfer.xyz/docs/classes/plugins_audiorating.AudioRatingPlugin">AudioRating plugin docs</a>
+    <a href="https://wavesurfer.xyz/docs/classes/plugins_audiorating.AudioRatingPlugin">AudioRating plugin docs</a>
   </p>
 </html>
 */
@@ -25,65 +37,112 @@ const wavesurfer = WaveSurfer.create({
   url: '/examples/audio/audio.wav',
 })
 
-const isMobile = top.matchMedia('(max-width: 900px)').matches
+const isMobile = window.matchMedia('(max-width: 900px)').matches
 
-// Initialize the Envelope plugin
-const audiorating = wavesurfer.registerPlugin(
+// Initialize the AudioRating plugin with multiple dimensions
+const audioRating = wavesurfer.registerPlugin(
   AudioRatingPlugin.create({
-    rating: 0.5,
-    lineColor: 'rgba(255, 0, 0, 0.5)',
+    dimensions: [
+      {
+        name: 'valence',
+        lineColor: 'rgba(255, 0, 0, 0.5)',
+        dragPointFill: 'rgba(0, 255, 255, 0.8)',
+        dragPointStroke: 'rgba(0, 0, 0, 0.5)',
+      },
+      {
+        name: 'arousal',
+        lineColor: 'rgba(0, 200, 0, 0.5)',
+        dragPointFill: 'rgba(255, 255, 0, 0.8)',
+        dragPointStroke: 'rgba(0, 0, 0, 0.5)',
+      },
+      {
+        name: 'energy',
+        lineColor: 'rgba(0, 0, 255, 0.5)',
+        dragPointFill: 'rgba(255, 0, 255, 0.8)',
+        dragPointStroke: 'rgba(0, 0, 0, 0.5)',
+      }
+    ],
+    activeDimension: 'valence',
     lineWidth: 4,
     dragPointSize: isMobile ? 20 : 12,
-    dragLine: !isMobile,
-    dragPointFill: 'rgba(0, 255, 255, 0.8)',
-    dragPointStroke: 'rgba(0, 0, 0, 0.5)',
-
-    points: [
-      { time: 11.2, rating: 0.5 },
-      { time: 15.5, rating: 0.8 },
-    ],
-  }),
+    points: {
+      valence: [
+        { time: 0.5, rating: 0.5 },
+        { time: 0.7, rating: 0.8 },
+      ],
+      arousal: [
+        { time: 0.2, rating: 0.3 },
+        { time: 0.9, rating: 0.9 },
+      ],
+      energy: [
+        { time: 0.7, rating: 0.7 },
+        { time: 0.2, rating: 0.4 },
+      ],
+    },
+  })
 )
 
-audiorating.on('points-change', (points) => {
-  console.log('AudioRating points changed', points)
+// Handle dimension selection changes
+const dimensionSelect = document.getElementById('dimension-select')
+dimensionSelect.addEventListener('change', (e) => {
+  const dimension = e.target.value
+  audioRating.setActiveDimension(dimension)
+  updateDimensionName()
+  updateRatingDisplay()
 })
 
-audiorating.addPoint({ time: 1, rating: 0.9 })
+// Update UI with current dimension name
+function updateDimensionName() {
+  document.getElementById('dimension-name').textContent =
+    `(${audioRating.getActiveDimension()})`
+}
 
-// Randomize points
+// Update rating display
+function updateRatingDisplay() {
+  document.getElementById('current-rating').textContent =
+    audioRating.getCurrentRating().toFixed(2)
+}
+
+// Randomize points for current dimension
 const randomizePoints = () => {
   const points = []
-  const len = 5 * Math.random()
+  const len = 3 + Math.floor(3 * Math.random())
   for (let i = 0; i < len; i++) {
     points.push({
       time: Math.random() * wavesurfer.getDuration(),
       rating: Math.random(),
     })
   }
-  audiorating.setPoints(points)
+  audioRating.setPoints(audioRating.getActiveDimension(), points)
 }
 
-document.querySelector('#randomize').onclick = randomizePoints
+document.getElementById('randomize').onclick = randomizePoints
 
-// Show the current volume
-const ratingLabel = document.querySelector('label')
-const showRating = () => {
-  ratingLabel.textContent = audiorating.getCurrentRating().toFixed(2)
-}
-audiorating.on('rating-change', showRating)
-wavesurfer.on('ready', showRating)
+// Event listeners
+audioRating.on('points-change', (dimension, points) => {
+  console.log(`Points changed for ${dimension}:`, points)
+})
 
-// Play/pause button
-const button = document.querySelector('#play')
-wavesurfer.once('ready', () => {
+audioRating.on('rating-change', updateRatingDisplay)
+
+wavesurfer.on('ready', () => {
+  updateDimensionName()
+  updateRatingDisplay()
+
+  // Play/pause button
+  const button = document.getElementById('play')
   button.onclick = () => {
     wavesurfer.playPause()
   }
+
+  // Add a test point
+  //audioRating.addPoint({ time: 1, rating: 0.9 })
 })
+
 wavesurfer.on('play', () => {
-  button.textContent = 'Pause'
+  document.getElementById('play').textContent = 'Pause'
 })
+
 wavesurfer.on('pause', () => {
-  button.textContent = 'Play'
+  document.getElementById('play').textContent = 'Play'
 })
