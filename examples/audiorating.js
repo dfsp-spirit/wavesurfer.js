@@ -18,6 +18,11 @@
     <span id="dimension-name" style="margin-left: 0.5em"></span>
   </div>
 
+  <div style="margin-top: 1em;">
+    <h4>Current Points (Debug):</h4>
+    <textarea id="points-debug" style="width: 100%; height: 400px; font-family: monospace;"></textarea>
+  </div>
+
   <div id="container" style="border: 1px solid #ddd;"></div>
 
   <p>
@@ -82,6 +87,26 @@ const audioRating = wavesurfer.registerPlugin(
   })
 )
 
+// Function to update the debug points display
+function updatePointsDebug() {
+  const currentDimension = audioRating.getActiveDimension()
+  const points = audioRating.getPoints(currentDimension)
+  const duration = wavesurfer.getDuration()
+
+  const debugInfo = {
+    dimension: currentDimension,
+    duration: duration,
+    points: points.map(p => ({
+      time: p.time,
+      rating: p.rating,
+      timePercentage: (p.time / duration * 100).toFixed(2) + '%',
+      yPosition: (1 - p.rating) * 100 + '%'
+    }))
+  }
+
+  document.getElementById('points-debug').value = JSON.stringify(debugInfo, null, 2)
+}
+
 // Handle dimension selection changes
 const dimensionSelect = document.getElementById('dimension-select')
 dimensionSelect.addEventListener('change', (e) => {
@@ -89,6 +114,7 @@ dimensionSelect.addEventListener('change', (e) => {
   audioRating.setActiveDimension(dimension)
   updateDimensionName()
   updateRatingDisplay()
+  updatePointsDebug()
 })
 
 // Update UI with current dimension name
@@ -114,6 +140,7 @@ const randomizePoints = () => {
     })
   }
   audioRating.setPoints(audioRating.getActiveDimension(), points)
+  updatePointsDebug()
 }
 
 document.getElementById('randomize').onclick = randomizePoints
@@ -121,6 +148,7 @@ document.getElementById('randomize').onclick = randomizePoints
 // Event listeners
 audioRating.on('points-change', (dimension, points) => {
   console.log(`Points changed for ${dimension}:`, points)
+  updatePointsDebug()
 })
 
 audioRating.on('rating-change', updateRatingDisplay)
@@ -128,6 +156,7 @@ audioRating.on('rating-change', updateRatingDisplay)
 wavesurfer.on('ready', () => {
   updateDimensionName()
   updateRatingDisplay()
+  updatePointsDebug()
 
   // Play/pause button
   const button = document.getElementById('play')
@@ -135,8 +164,6 @@ wavesurfer.on('ready', () => {
     wavesurfer.playPause()
   }
 
-  // Add a test point
-  //audioRating.addPoint({ time: 1, rating: 0.9 })
 })
 
 wavesurfer.on('play', () => {
@@ -146,3 +173,6 @@ wavesurfer.on('play', () => {
 wavesurfer.on('pause', () => {
   document.getElementById('play').textContent = 'Play'
 })
+
+// Also update points debug when seeking
+wavesurfer.on('timeupdate', updatePointsDebug)
